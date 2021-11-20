@@ -1,3 +1,6 @@
+# Image de base sur DockerHub
+FROM php:8.0-apache
+
 # Ajout du module de rewriting d'Apache 
 RUN a2enmod rewrite  
  
