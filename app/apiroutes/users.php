@@ -6,7 +6,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Message\ResponseInterface as Response;
 
 /** 
- * Get Me (Connected User) (see documentation) 
+ * Get Me (utilisateur connecté) (see documentation) 
  */ 
 $app->get('/api/users/me', function( Request $request, Response $response) {
     $token = get_token_infos($request);
@@ -19,7 +19,7 @@ $app->get('/api/users/me', function( Request $request, Response $response) {
         $sql = "SELECT * FROM users WHERE (username='" . $token->username . "')";
         $stmt = $db->query( $sql );
         $user = $stmt->fetchAll( PDO::FETCH_OBJ )[0];
-        $db = null; // clear db object
+        $db = null; // effacer l'objet de base de données
     }
     catch( PDOException $e ) { 
         echo $e; 
@@ -33,14 +33,14 @@ $app->get('/api/users/me', function( Request $request, Response $response) {
 });
 
 /** 
- * Modify Me (Connected User) - (see documentation) 
+ * Modify Me (utilisateur connecté) - (see documentation) 
  */ 
 $app->put('/api/users/me', function( Request $request, Response $response) {
     $token = get_token_infos($request);
 
     $dbconn = new DB\DBConnection();
 
-    // Check user exists in database
+    // Vérifier que l'utilisateur existe dans la base de données
     try {
         $db = $dbconn->connect();    
     
@@ -48,9 +48,9 @@ $app->put('/api/users/me', function( Request $request, Response $response) {
         $sql = "SELECT * FROM users WHERE (username='" . $token->username . "')";
         $stmt = $db->query( $sql );
         $users = $stmt->fetchAll( PDO::FETCH_OBJ );
-        $db = null; // clear db object
+        $db = null; // effacer l'objet de base de données
 
-        // Check if the user does not exist
+        // Vérifier si l'utilisateur n'existe pas
         if (sizeof($users) != 1) {
             // response : 404 : not Found
             $response->getBody()->write('{"error": {"msg": "Could not find user."}}'); 
@@ -66,23 +66,25 @@ $app->put('/api/users/me', function( Request $request, Response $response) {
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500); 
     }
 
-    // The user exists
+    /**
+     * L'utilisateur existe
+     */
 
-    // Prevent the user from modyfing their id or username
+    // empêcher l'utilisateur de modifier son identifiant ou son nom d'utilisateur
     if (array_key_exists("id", $request->getParsedBody()) || array_key_exists("username", $request->getParsedBody())) {
         // response : 400 : Bad Request
         $response->getBody()->write('{"error": {"msg": "Cannot modify ID or Username"}}'); 
         return $response->withHeader('Content-Type', 'application/json')->withStatus(400); 
     }
 
-    // Prevent having an empty array
+    // éviter d'avoir un tableau vide
     if (sizeof($request->getParsedBody()) == 0) {
         // response : 400 : Bad Request
         $response->getBody()->write('{"error": {"msg": "No changes were requested"}}'); 
         return $response->withHeader('Content-Type', 'application/json')->withStatus(400); 
     }
 
-    // On forge la requête sql
+    // On créer la requête sql
     $sql = "UPDATE users SET";
     if (array_key_exists("first_name", $request->getParsedBody())) {
         $sql = $sql . " first_name='" . $request->getParsedBody()["first_name"] . "',"; //FIXME: les virgules ou les espaces?
@@ -95,16 +97,16 @@ $app->put('/api/users/me', function( Request $request, Response $response) {
     }
     $sql = $sql . " WHERE (id='" . $user->id . "')";
 
-    // Apply the change
+    // Application des modifications
     try {
-        echo $sql; //FIXME: get rid of this when the concatenation for the sql query is fixeds
+        echo $sql; // débarrassez-vous de cela lorsque la concaténation de la requête SQL est corrigée
         $db = $dbconn->connect();
         $stmt = $db->query( $sql );
-        $db = null; // clear db object
+        $db = null; // effacer l'objet de base de données
     }
     catch( PDOException $e ) { 
         echo $e; 
-        // response : 500 : PDO Error (DB) 
+        // response : 500 : PDO Error 
         $response->getBody()->write('{"error": {"msg": "' . $e->getMessage() . '"}}'); 
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500); 
     }
@@ -114,32 +116,32 @@ $app->put('/api/users/me', function( Request $request, Response $response) {
 });
 
 /** 
- * Get All Users : admin only (see documentation) 
+ * Get All Users : admin seulement (see documentation) 
  */ 
 $app->get('/api/users', function( Request $request, Response $response){ 
     //prepare query 
     $sql = "SELECT * FROM users ORDER BY id"; 
 
     try { 
-        //check auth 
+        //vérifier l'authentification 
         $userdata = get_token_infos($request); 
 
-        // check auth user is admin     
+        // vérifier que l'utilisateur authentifié est administrateur    
         if (!$userdata->admin) { 
             throw new Auth\UnauthorizedException("Service only available for admin user !"); 
         } 
 
         try { 
-            //connect to DB 
+            // se connecter à la base de données 
             $dbconn = new DB\DBConnection(); 
             $db = $dbconn->connect();     
 
-            // execute sql 
+            // exécuter le SQL
             $stmt = $db->query( $sql ); 
             $users = $stmt->fetchAll( PDO::FETCH_OBJ ); 
-            $db = null; // clear db object  
+            $db = null; // effacer l'objet de base de données 
 
-            //response : 200 : Return All Users Array 
+            //response : 200 : Renvoyer le tableau de tous les utilisateurs
             $response->getBody()->write(json_encode( $users )); 
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200); 
         } catch( PDOException $e ) { 

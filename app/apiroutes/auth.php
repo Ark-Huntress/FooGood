@@ -7,7 +7,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Message\ResponseInterface as Response; 
  
 /** 
- * Post Login 
+ * Connexion après la publication
  */ 
 $app->post('/api/login', function( Request $request, Response $response){
     if ($request->getParsedBody() == null) {
@@ -20,7 +20,7 @@ $app->post('/api/login', function( Request $request, Response $response){
     $username = $request->getParsedBody()["name"];
     $password = $request->getParsedBody()["password"];
 
-    $user = null; // logged-in user
+    $user = null; // utilisateur connecté
 
     // On récupère s'assure que l'utilisateur existe, et on récupère ses données
     try {
@@ -31,9 +31,9 @@ $app->post('/api/login', function( Request $request, Response $response){
         $sql = "SELECT * FROM users WHERE (username='" . $username . "' AND password='" . $password . "')";
         $stmt = $db->query( $sql );
         $users = $stmt->fetchAll( PDO::FETCH_OBJ );
-        $db = null; // clear db object
+        $db = null; // effacer l'objet de base de données
         
-        if (sizeof($users) != 1) { // Found no user or too much, i.e. credentials are wrong
+        if (sizeof($users) != 1) { // Aucun utilisateur trouvé ou trop, c'est-à-dire que les informations d'identification sont erronées
             // response : 403 : Forbidden
             $response->getBody()->write('{"error": {"msg": "Invalid credentials."}}'); 
             return $response->withHeader('Content-Type', 'application/json')->withStatus(403); 

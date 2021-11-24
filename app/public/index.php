@@ -1,17 +1,17 @@
 <?php
 
-// # use Namespaces for HTTP request
+// # utiliser des espaces de noms pour la requête HTTP
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Message\ResponseInterface as Response;
 
-// # include the Slim framework
+// # include le framework Slim 
 require __DIR__ . '/../vendor/autoload.php';
 
 
 $config['displayErrorDetails'] = true;
 $config['addContentLengthHeader'] = false;
 
-// # create new Slim instance
+// # créer une nouvelle instance Slim
 $app = new \Slim\App(
   [
     'settings' => $config, 

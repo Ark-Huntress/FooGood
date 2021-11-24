@@ -31,7 +31,7 @@ class DBConnection {
         // https://www.php.net/manual/en/pdo.setattribute.php
         $dbConn->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
 
-        // return the database connection back
+        // retourner la connexion à la base de données
         return $dbConn;
     }
 }

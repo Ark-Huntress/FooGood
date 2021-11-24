@@ -6,10 +6,10 @@ use \Firebase\JWT\JWT;
 
 
 /**
- * Class which implements token coder/decoder using Firebase JWT
+ * Classe qui implémente le codeur/décodeur de jetons à l'aide de Firebase JWT
  */
 class JwtHandler {
-    const TOKEN_PASSPHRASE = "iutsd";  // Const used to encode the token 
+    const TOKEN_PASSPHRASE = "iutsd";  // Const utilisé pour encoder le token 
 
     protected $jwt_secrect;
     protected $token;
@@ -18,17 +18,17 @@ class JwtHandler {
     protected $jwt;
 
     /**
-     * Class constructor
+     * Class constructeur
      */
     public function __construct()
     {
-        // set token's issue date (creation date)
+        // définir la date d'émission du token (date de création)
         $this->issuedAt = time();
         
-        // Token Validity (3600 second = 1hr)
+        // Validité du token (3600 secondes = 1h)
         $this->expire = $this->issuedAt + 3600;
 
-        // Set your secret or signature
+        // Définissez votre secret ou votre signature
         $this->jwt_secrect = self::TOKEN_PASSPHRASE;
     }
 
@@ -40,10 +40,10 @@ class JwtHandler {
     public function _jwt_encode_data($iss,$data){
 
         $this->token = array(
-            //Adding the identifier to the token (who issue the token)
+            // ajouter l'identifiant au token (qui émet le token)
             "iss" => $iss,
             "aud" => $iss,
-            // Adding the current timestamp to the token, for identifying that when the token was issued.
+            // Ajout de l'horodatage actuel au token, pour identifier le moment où le token a été émis.
             "iat" => $this->issuedAt,
             // Token expiration
             "exp" => $this->expire,
