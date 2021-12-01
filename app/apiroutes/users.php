@@ -144,6 +144,7 @@ $app->get('/api/users', function( Request $request, Response $response){
             //response : 200 : Renvoyer le tableau de tous les utilisateurs
             $response->getBody()->write(json_encode( $users )); 
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200); 
+            
         } catch( PDOException $e ) { 
             // response : 500 : PDO Error (DB) 
             $response->getBody()->write('{"error": {"msg": "' . $e->getMessage() . '"}}'); 
