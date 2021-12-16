@@ -1,3 +1,3 @@
 # FooGood
 
-Bon projet qui me fait rage quit.
+Projet sur un API REST
