@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FooGood</title>
+    <!-- Bootstrap CSS -->
+    <link rel='stylesheet' href='./css/bootstrap.min.css'>
+    <!-- Appel de la Feuille de style minifiée De l'extension Datepicker -->
+    <link rel="stylesheet" href="./css/bootstrap-datepicker.min.css">
+    <!-- Font Awesome CSS -->
+    <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.3.1/css/all.css'>
+
+    <!-- Demo Main CSS -->
+    <link rel="stylesheet" href="./css/main.css">
+
+    <!-- JS -->
+    <script src="./js/jquery-3.6.0.js"></script>
+    <script src="./js/bootstrap.min.js"></script>
+    <!-- Extension DATEPICKER -->
+    <script src="./js/bootstrap-datepicker.min.js"></script>
+    <script src="./js/bootbox.all.min.js"></script>
+
+    <!-- include the html5-qrcode -->
+    <script src="https://unpkg.com/html5-qrcode@2.0.9/dist/html5-qrcode.min.js"></script>
+
+    <script>
+        //api infos (globales)
+        /* TODO */
+        var API_HOST = "127.0.0.1";
+        var API_PORT = 8080;
+
+        /**
+         * fonction qui prend en charge l'erreur et detecte notamment les erreur d'authentification.
+         * 
+         * ARGS : 
+         * - request : la réponse en fait
+         * - message : le message brut de la réponse (pas utilisé)
+         * - error : l'erreur (pas utilisé)
+         * - reconnection_callback_function : la fonction à rappeler une fois la tentative de reconnexion effectuée 
+         */
+        function handleException(request, message, error) {
+
+            // Si le status de la reponse est 401 : Je tente une connexion
+            if (request.status == 401) {
+                // J'ouvre une fenêtre d'authentification 
+                // et je passe en paramètre la fonction à
+                // rappeler si la connexion réussie
+                authenticate();
+                return;
+            }
+
+            // J'affiche un message d'alerte avec le message d'erreur et le code retour
+            var msg = "";
+            msg += "Code: " + request.status + "\n";
+            msg += "Text: " + request.statusText + "\n";
+            if (request.responseJSON != null) {
+                msg += "\n" + request.responseJSON.error.msg + "\n";
+            }
+            alert(msg);
+        }
+
+        /**
+         * Fonction qui gère l'authentification : 
+         * Elle affiche le formulaire d'identification (#loginModal) 
+         * et tente une connexion pour récupérer le token.
+         * Si l'authentification échoue, l'erreur est affichée en rouge dans le formulaire
+         * Sinon le token est stocké dans sessionStorage, le form est fermé et la fonction displayShoppingLists est rappelée
+         */
+        function authenticate(reconnection_callback_function) {
+            // Affiche le formulaire qui a pour id : loginModal.
+            // L'instruction modal('show') est une instruction bootstrap
+            $('#loginModal').modal('show');
+
+
+
+        }
+
+        /**
+         * Fonction qui se charge de faire l'appel de la route /api/shoppinglists 
+         * pour récupérer toutes les shopping listes
+         */
+        function displayShoppingLists() {
+            // Réalisation de la requête sur l'API pour récupérer toutes les shoppinglists 
+            // de l'utilisateur courant
+            $.ajax({
+                    url: API_HOST + ':' + API_PORT + 'api/shoppinglists', //TODO
+                    type: "GET", //TODO
+                    headers: {
+                        "Authorization": "Bearer " + sessionStorage.getItem('token')
+                    }, // Je n'oublie pas de passer le token
+                    dataType: 'json' // type de donnée attendue en réponse
+
+                })
+                // en cas de succès : 
+                // la variable shoppinglists contient le array de shoppinglists json déjà parsé
+                .done(function(shoppinglists) {
+
+                    // Si shoppinglistsTable contient déjà qq chose, je la vide
+                    if ($("#shoppinglistsTable tbody").length != 0) {
+                        $("#shoppinglistsTable tbody").empty();
+                    }
+                    // On itère sur chacune des listes
+                    $.each(shoppinglists, function(index, shoppinglist) {
+                        // On appelle la fonction qui ajoute une ligne (une liste) dans la table
+                        // On vérifie que la balide tbody existe, sinon on l'ajoute
+                        if ($("#shoppinglistsTable tbody").length == 0) {
+                            $("#shoppinglistsTable").append("<tbody></tbody>");
+                        }
+
+                        // Ajoute une ligne à la table 
+                        var nutriscore = parseFloat(shoppinglist.mean_nutriscore);
+                        var creation_date = new Date(shoppinglist.creation_date);
+                        var purchase_date = new Date(shoppinglist.purchase_date);
+                        const dt_options = {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        };
+                        const d_options = {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        };
+
+
+                        var row =
+                            "<tr data-toggle='collapse' data-target='#shoppinglist_articles_" + shoppinglist.id + "' class='accordion-toggle' >" +
+                            "<td class=\"align-middle\">" + shoppinglist.title + "</td>" +
+                            "<td class=\"align-middle\">" + creation_date.toLocaleDateString("fr-FR", dt_options) + "</td>" +
+                            "<td class=\"align-middle\">" + purchase_date.toLocaleDateString("fr-FR", d_options) + "</td>" +
+                            "<td class=\"align-middle\">" +
+                            "<div id='nutriscore_shoppinglist_" + shoppinglist.id + "' class='progress' style='height:25px;'>" +
+                            "<div class='progress-bar' role='progressbar' style='background-color: " + nutriscore2color(nutriscore) + "; width: " + Math.round(nutriscore * 20) + "%;' aria-valuenow='" + Math.round(nutriscore * 20) + "' aria-valuemin='0' aria-valuemax='100'>" + (Math.round((nutriscore + Number.EPSILON) * 100) / 100) + "/5</div>" +
+                            "</div>" +
+                            "</td>" +
+                            "<td class='align-middle'><button onclick=\"addOrUpdateShoppingList(" + shoppinglist.id + ");\" type='button' class='btn btn-warning'><i class='fa fa-pencil'></i></button>&nbsp;&nbsp;" +
+                            "<button type='button' onclick='removeShoppingList(" + shoppinglist.id + ");' class='btn btn-danger'><i class='fa fa-trash'></i></button></td>" +
+                            "</tr>" +
+                            "<tr><td colspan='5' class='hiddenRow'><div id='shoppinglist_articles_" + shoppinglist.id + "' class='accordian-body collapse'>" +
+                            "<div style='padding:20px'><table id='shoppinglist_articles_table_" + shoppinglist.id + "'' class='table table-bordered  table-condensed table-striped' style='width:90%;margin: auto;'>" +
+                            "<thead class='table-striped'>" +
+                            "<tr>" +
+                            "<th class='align-middle'>Photo</th>" +
+                            "<th class='align-middle'>Description</th>" +
+                            "<th class='align-middle'>Nutriscore</th>" +
+                            "<th class='align-middle'><button onclick=\"openProductsSearchDialog(" + shoppinglist.id + ");\" type='button' class='btn btn-success'><i class='fa fa-plus'></i></button></th>" +
+                            "</tr>" +
+                            "</thead>" +
+                            "</table></div>" +
+                            "</div></td></tr>";
+
+                        //alert(row);
+                        $("#shoppinglistsTable tbody").append(row);
+                    });
+
+                    $('.accordian-body').on('show.bs.collapse', function() {
+
+                        //get articles and display them
+                        var shoppinglist_id = $(this).attr("id").replace("shoppinglist_articles_", "");
+
+                        displayShoppingListArticles(shoppinglist_id);
+
+                        $(this).closest("table")
+                            .find(".collapse.in")
+                            .not(this)
+                            .collapse('toggle')
+                    })
+
+                })
+                // en cas d'échec, j'appelle la fonction handleException 
+                // qui va détecter si c'est un problème d'authentification (401) 
+                // et tenter une reconnexion
+                .fail(function(request, message, error) {
+                    // le dernier paramètre est la fonction à rappeler si en se reconnecte
+                    handleException(request, message, error);
+                });
+        }
+
+        /*
+        Fonction qui affiche la liste des articles pour une shoppinglist
+        */
+        function displayShoppingListArticles(shoppinglist_id) {
+            // Réalisation de la requête sur l'API pour récupérer tous les articles  
+            // pour une shoppinglist donnée
+            $.ajax({
+                    url: API_HOST + ':' + API_PORT + 'api/shoppinglists' + shoppinglist_id, //TODO
+                    type: 'GET', //TODO
+                    headers: {
+                        "Authorization": "Bearer " + sessionStorage.getItem('token')
+                    }, // Je n'oublie pas de passer le token
+                    dataType: 'json' // type de donnée attendue en réponse
+
+                })
+                // en cas de succès : 
+                // la variable shoppinglists contient le array de shoppinglists json déjà parsé
+                .done(function(articles) {
+                    // Si shoppinglistsTable contient déjà qq chose, je la vide
+                    if ($("#shoppinglist_articles_table_" + shoppinglist_id + " tbody").length != 0) {
+                        $("#shoppinglist_articles_table_" + shoppinglist_id + " tbody").empty();
+                    }
+                    // On itère sur chacun des articles
+                    $.each(articles, function(index, article) {
+                        // On appelle la fonction qui ajoute une ligne (une liste) dans la table
+                        // On vérifie que la balide tbody existe, sinon on l'ajoute
+                        if ($("#shoppinglist_articles_table_" + shoppinglist_id + " tbody").length == 0) {
+                            $("#shoppinglist_articles_table_" + shoppinglist_id).append("<tbody></tbody>");
+                        }
+
+                        var row = "<tr>" +
+                            "<td class='align-middle'><img width=60 src='" + article.image_url + "'/></td>" +
+                            "<td class='align-middle'>" + article.title + "</td>" +
+                            "<td class='align-middle' ><mark class='scoremark_" + article.nutriscore + "'>" + article.nutriscore + "</mark></td>" +
+                            "<td class='align-middle'><button onclick='removerticleIntoShoppinglist(" + article.id + ", " + shoppinglist_id + ");' type='button' class='btn btn-danger'><i class='fa fa-trash'></i></button></td>" +
+                            "</tr>";
+
+                        $("#shoppinglist_articles_table_" + shoppinglist_id + " tbody").append(row);
+
+                    });
+                })
+                .fail(function(request, message, error) {
+                    // le dernier paramètre est la fonction à rappeler si en se reconnecte
+                    handleException(request, message, error);
+                });
+        }
+
+
+        function nutriscore2color(nutriscore) {
+            if (nutriscore < 1) {
+                return "#cb444a";
+            } else if (nutriscore < 2) {
+                return "#e1872d";
+            } else if (nutriscore < 3) {
+                return "#f6c244";
+            } else if (nutriscore < 4) {
+                return "#4aa0b5";
+            } else {
+                return "#53a451";
+            }
+
+
+        }
+
+
+
+
+        /**
+         * Fonction qui gère l'authentification : 
+         * Elle affiche le formulaire d'identification (#loginModal) 
+         * et tente une connexion pour récupérer le token.
+         * Si l'authentification échoue, l'erreur est affichée en rouge dans le formulaire
+         * Sinon le token est stocké dans sessionStorage, le form est fermé et la fonction displayShoppingLists est rappelée
+         */
+        function addOrUpdateShoppingList(id) {
+            $('#shoppinglistAddUpdateError').text("");
+
+            if (id) { //si id est renseigné, c'est une modification
+
+                // Réalisation de la requête sur l'API pour récupérer les infos  
+                // d'une shoppinglist (par son id)
+                $.ajax({
+                        url: API_HOST + ':' + API_PORT + '/api/shoppinglists/' + id,
+                        type: 'GET',
+                        headers: {
+                            "Authorization": "Bearer " + sessionStorage.getItem('token')
+                        }, // Je n'oublie pas de passer le token
+                        dataType: 'json' // type de donnée attendue en réponse
+
+                    })
+                    // en cas de succès : 
+                    // la variable shoppinglists contient le array de shoppinglists json déjà parsé
+                    .done(function(shoppinglist) {
+
+                        $('#shoppinglistModalLabel').text("Modifier la liste '" + shoppinglist.title + "'");
+
+                        $('#shoppinglistForm').find('input[name="shoppinglist_id"]').val(id + "");
+
+                        const d_options = {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        };
+                        var purchase_date = new Date(shoppinglist.purchase_date);
+                        $(".datepicker").datepicker("update", purchase_date);
+                        $('#shoppinglist_title').val(shoppinglist.title);
+                        $('#shoppinglist_purchase_date').val(purchase_date.toLocaleDateString("fr-FR"));
+
+                        $('#shoppinglistModal').modal('show');
+                    })
+                    // en cas d'échec (réponse autre que 200 ou 201) : J'affiche le message d'erreur en rouge dans la fenêtre du formulaire
+                    .fail(function(request, message, error) {
+                        $("#authError").text(error + " : " + request.responseJSON.message);
+                    });
+
+            } else { // sinon, c'est une nouvelle liste
+
+                $('#shoppinglistModalLabel').text("Créer une nouvelle liste.");
+
+                $('#shoppinglistForm').find('input[name="shoppinglist_id"]').val("");
+
+
+                var purchase_date = new Date();
+                $(".datepicker").datepicker("update", purchase_date);
+                $('#shoppinglist_title').val("");
+                $('#shoppinglist_purchase_date').val(purchase_date.toLocaleDateString("fr-FR"));
+
+                $('#shoppinglistModal').modal('show');
+
+            }
+        }
+
+        /*
+        Fonction qui supprime une shoppinglist
+        */
+        function removeShoppingList(shoppinglist_id) {
+            bootbox.confirm({
+                size: "small",
+                message: "Êtes vous sûr de vouloir supprimer cette liste ?",
+                callback: function(result) {
+                    if (result) {
+                        // Réalisation de la requête sur l'API pour supprimer une shoppinglist
+                        $.ajax({
+                            url: API_HOST + ':' + API_PORT + '/api/shoppinglists/' + shoppinglist_id,
+                                // TODO	
+                            type: 'DELETE',	
+                            headers: {	
+                                "Authorization": "Bearer " + sessionStorage.getItem('token')	
+                            }, // Je n'oublie pas de passer le token	
+                            dataType: 'json' // type de donnée attendue en réponse
+                            })
+                            // en cas de succès : 
+                            // la variable shoppinglists contient le array de shoppinglists json déjà parsé
+                            .done(function(articles) {
+
+                                displayShoppingLists();
+
+                            })
+                            .fail(function(request, message, error) {
+                                // le dernier paramètre est la fonction à rappeler si en se reconnecte
+                                handleException(request, message, error);
+                            });
+                    }
+                }
+            });
+        }
+
+
+
+        /*
+        Ouvre le dialogue de recherche de produits sur openfoodfact
+        */
+        function openProductsSearchDialog(shoppinglist_id) {
+            $('#shoppinglist_id_search_for').val(shoppinglist_id + "");
+            $('#searchModal').modal('show');
+        }
+
+        /*
+        Fonction qui ajoute un article (id) dans une shopping list
+        */
+        function addArticleIntoShoppinglist(article_id, shoppinglist_id) {
+
+            //construit un json array contenant ... 1 article.
+            var articles_arr_json = JSON.parse(JSON.stringify([article_id]))
+
+            // Réalisation de la requête sur l'API pour ajouter un article à une shoppinglist
+            // (on passe le json array comme raw)
+            $.ajax({
+                    url: API_HOST + ':' + API_PORT + '/api/shoppinglists/' + shoppinglist_id + '/articles', // TODO
+                    type: 'POST', // TODO
+                    headers: {
+                        "Authorization": "Bearer " + sessionStorage.getItem('token')
+                    }, // Je n'oublie pas de passer le token
+                    data: JSON.stringify(articles_arr_json), // <== Cadeau :)
+                    dataType: 'json', // TODO : type de donnée attendue en réponse,
+                    processData: false, // <== Cadeau :)
+                    contentType: 'application/json' // <== Cadeau :)
+
+                })
+                // en cas de succès : 
+                .done(function(message) {
+
+                    updateShoppingListNutriscore(shoppinglist_id);
+                    displayShoppingListArticles(shoppinglist_id);
+
+                    // Je cache le formulaire 
+                    // L'instruction modal('hide') est une instruction bootstrap
+                    $('#searchModal').modal('hide');
+                })
+                .fail(function(request, message, error) {
+                    // le dernier paramètre est la fonction à rappeler si en se reconnecte
+                    handleException(request, message, error);
+                });
+        }
+
+        /*
+        Fonction qui supprime un article (id) dans une shopping list
+        */
+        function removerticleIntoShoppinglist(article_id, shoppinglist_id) {
+            bootbox.confirm({
+                size: "small",
+                message: "Êtes vous sûr de vouloir supprimer cet article ?",
+                callback: function(result) {
+                    if (result) {
+                        // Réalisation de la requête sur l'API pour récupérer la liste des articles d'une shoppinglist 
+                        $.ajax({
+                            url: API_HOST + ':' + API_PORT + '/api/shoppinglists/' + shoppinglist_id + '/articles',
+                                type: 'GET',	
+                                headers: {
+                                    "Authorization": "Bearer " + sessionStorage.getItem('token')
+                                }, // Je n'oublie pas de passer le token
+                                data: JSON.stringify(articles_arr_json), // <== Cadeau :)
+                                dataType: 'json', // TODO : type de donnée attendue en réponse,
+                                processData: false, // <== Cadeau :)
+                                contentType: 'application/json' // <== Cadeau :)
+                            })
+                            // en cas de succès : 
+                            // la variable shoppinglists contient le array de shoppinglists json déjà parsé
+                            .done(function(articles) {
+
+                                // construit une nouvelle liste d'articles de laquelle nous retirerons l'article à supprimer
+                                var new_articles_id = [];
+                                var deleted = false;
+                                // On itère sur chacun des articles et on ajoute à la liste sauf si = article_id
+                                $.each(articles, function(index, article) {
+                                    if (article.id == article_id && !deleted) {
+                                        deleted = true;
+                                    } else {
+                                        new_articles_id.push(article.id);
+                                    }
+
+                                });
+
+
+                                //construit un json array contenant la nouvelle liste d'articles.
+                                var articles_arr_json = JSON.parse(JSON.stringify(new_articles_id));
+
+                                // Réalisation de la requête sur l'API (PUT) pour remplacer tous les articles d'une shoppinglist
+                                // (on passe le json array comme raw)
+                                $.ajax({
+                                        // TODO : cf. la requête post d'ajout d'article (c'est la même avec un PUT à la place d'un POST)
+
+                                    })
+                                    // en cas de succès : 
+                                    .done(function(message) {
+
+                                        updateShoppingListNutriscore(shoppinglist_id);
+                                        displayShoppingListArticles(shoppinglist_id);
+
+                                        // Je cache le formulaire 
+                                        // L'instruction modal('hide') est une instruction bootstrap
+                                        $('#searchModal').modal('hide');
+                                    })
+                                    .fail(function(request, message, error) {
+                                        // le dernier paramètre est la fonction à rappeler si en se reconnecte
+                                        handleException(request, message, error);
+                                    });
+
+                            })
+                            .fail(function(request, message, error) {
+                                // le dernier paramètre est la fonction à rappeler si en se reconnecte
+                                handleException(request, message, error);
+                            });
+                    }
+                }
+            });
+
+
+
+        }
+
+        /*
+        met à jour seulement la barre de nutriscore pour une shopping list
+        */
+        function updateShoppingListNutriscore(shoppinglist_id) {
+            // Réalisation de la requête sur l'API pour récuperer les infos d'une shoppinglist
+            // (même si c'est juste le score qui nous intéresse)
+            $.ajax({
+                url: API_HOST + ':' + API_PORT + '/api/shoppinglists/' + shoppinglist_id,
+                type: 'GET',	
+                headers: {	
+                    "Authorization": "Bearer " + sessionStorage.getItem('token')
+                }, // Je n'oublie pas de passer le token
+                dataType: 'json' // type de donnée attendue en réponse
+                })
+                // en cas de succès : 
+                // la variable shoppinglists contient le array de shoppinglists json déjà parsé
+                .done(function(shoppinglist) {
+                    var nutriscore = parseFloat(shoppinglist.mean_nutriscore);
+
+                    var progressdiv = "<div class='progress-bar' role='progressbar' style='background-color: " + nutriscore2color(nutriscore) + "; width: " + Math.round(nutriscore * 20) + "%;' aria-valuenow='" + Math.round(nutriscore * 20) + "' aria-valuemin='0' aria-valuemax='100'>" + (Math.round((nutriscore + Number.EPSILON) * 100) / 100) + "/5</div>";
+
+                    $('#nutriscore_shoppinglist_' + shoppinglist.id).html(progressdiv);
+                })
+                // en cas d'échec (réponse autre que 200 ou 201) : J'affiche le message d'erreur en rouge dans la fenêtre du formulaire
+                .fail(function(request, message, error) {
+                    $("#authError").text(error + " : " + request.responseJSON.message);
+                });
+        }
+
+
+
+
+
+
+        /*
+        Fonctions Pour Le Dialog de Recherche.
+        */
+        function search() {
+            var search = $("#search").val();
+            // Réalisation de la requête sur l'API pour effectuer une recherche d'articles 
+            // (sur la partie /openfoodfacts de notre api)
+            $.ajax({
+                url: API_HOST + ':' + API_PORT + '/api/openfoodfacts/articles', // TODO
+                type: 'GET', // TODO
+                data: { // Parametre query (?...)
+                    search: search
+                },
+                dataType: 'json' // TODO
+            })
+            .done(function(products) {
+                    displayProductsList(products);
+            })
+            .fail(function(request, message, error) {
+                handleException(request, message, error);
+            });
+        }
+
+        /*
+        Recherche un article par son id (barcode)
+        */
+        function searchBC(barcode) {
+            // Requete qui recherche sur openfoodfact (via notre api) un article en donnant son id (barcode)
+            $.ajax({
+                // TODO
+                url: API_HOST + ':' + API_PORT + '/api/openfoodfacts/articles/' + barcode, // TODO
+                type: 'GET', // TODO
+                dataType: 'json' // TODO
+            })
+            .done(function(products) {
+                    displayProductsList(products);
+            })
+            .fail(function(request, message, error) {
+                handleException(request, message, error);
+            });
+        }
+
+        /*
+        affiche la liste des produits recherchés (ou un seul si c'est une recherche par code barre)
+        */
+        function displayProductsList(products) {
+            // On récupère l'id de la liste à laquelle ajouter l'article 
+            // (stoqué dans un champs caché au moment de l'affichage du dialog modal)
+            var shoppinglist_id = $("#shoppinglist_id_search_for").val();
+
+            // Si productTable contient déjà des articles, je la vide
+            if ($("#productTable tbody").length != 0) {
+                $("#productTable tbody").empty();
+            }
+
+            // Iterate over the collection of data
+            $.each(products, function(index, product) {
+                // Ajoute le produit
+                // Check if <tbody> tag exists, add one if not
+                if ($("#productTable tbody").length == 0) {
+                    $("#productTable").append("<tbody></tbody>");
+                }
+                // Append row to <table>
+                var row =
+                    "<tr>" +
+                    "<td class='align-middle'><img width=60 src='" + product.image_url + "'/></td>" +
+                    "<td class='align-middle'>" + product.title + "</td>" +
+                    "<td class='align-middle' ><mark class='scoremark_" + product.nutriscore + "'>" + product.nutriscore + "</mark></td>" +
+                    "<td class='align-middle'><button onclick='addArticleIntoShoppinglist(" + product.id + ", " + shoppinglist_id + ");' type='button' class='btn btn-info'><i class='fa fa-shopping-cart'></i></button></td>" +
+                    "</tr>";
+
+                $("#productTable tbody").append(row);
+            });
+        }
+
+
+
+        /*
+        fonction callback appelée lorsque le scan d'un code barre est effectué avec succès
+        */
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`Code scanned = ${decodedText}`, decodedResult);
+            searchBC(decodedText);
+        }
+
+
+
+
+        /*
+        Fonction importante qui initialise les "callbacks" appelés lorsque les formulaires sont validés
+        */
+        function initSubmitCallbacks() {
+
+            //Défini la fonction qui est appelée lorsque l'événement 'submit' 
+            //du formlaire de login
+            $("#loginForm").submit(function(event) {
+
+                // Empêche le "submit" par défaut de se produire
+                event.preventDefault();
+
+                // Sérialise le contenu du formulaire sous la forme "username=xxxxx&password=xxxxx"
+                var formdata = $("#loginForm").serialize();
+
+                // Réalisation de la requête post sur l'API pour l'authentification (CADEAU :))
+                $.ajax({
+                        url: API_HOST + ':' + API_PORT + '/api/login',
+                        type: 'POST',
+                        contentType: "application/x-www-form-urlencoded", // type des données envoyées
+                        data: formdata, // corps de la requête (les champs du formulaire sous la forme "name=xxxxx&password=xxxxx" : x-wwww-form-urlencoded)
+                        dataType: "json" // type des données attendue en réponse
+
+                    })
+                    // en cas de succès (message est l'objet json retourné et parsé ==> objet JavaScript)
+                    .done(function(message) {
+
+                        // je récupère le token (propriété 'token' de l'objet message)
+                        // et le 'set' dans le sessionStorage
+                        sessionStorage.setItem('token', message.token);
+
+                        // Je cache le formulaire 
+                        // L'instruction modal('hide') est une instruction bootstrap
+                        $('#loginModal').modal('hide');
+
+                        // si la fonction reconnection_callback_function est définie : Je l'appelle
+                        // (dans notre cas, c'est pour rappeler la fonction displayShoppingLists)
+                        displayShoppingLists();
+
+                    })
+                    // en cas d'échec (réponse autre que 200 ou 201) : J'affiche le message d'erreur en rouge dans la fenêtre du formulaire
+                    .fail(function(request, message, error) {
+                        $("#authError").text(error + " : " + request.responseJSON.message);
+                    });
+
+            });
+
+
+            //Défini la fonction qui est appelée lorsque l'événement 'submit' 
+            //du formlaire de modif ou d'ajout d'une shoppinglist
+            $("#shoppinglistForm").submit(function(event) {
+
+                // Empêche le "submit" par défaut de se produire
+                event.preventDefault();
+
+                //retrieve shoppinglist_id
+                var shoppinglist_id = $('#shoppinglistForm').find('input[name="shoppinglist_id"]').val();
+
+                if ((!shoppinglist_id || shoppinglist_id.length === 0)) // add
+                {
+                    // Empêche le "submit" par défaut de se produire
+                    event.preventDefault();
+
+                    $('#shoppinglist_purchase_date').val($(".datepicker").data('datepicker').getFormattedDate('yyyy-mm-dd'));
+
+                    // Sérialise le contenu du formulaire sous la forme "title=xxxxx&purchase_date=xxxxx"
+                    var formdata = $("#shoppinglistForm").serialize();
+
+                    // Réalisation de la requête post sur l'API pour ajouter une shoppinglist
+                    $.ajax({
+                            // TODO : très similaire à la requête de passage de formulaire pour l'authentification (juste au dessus)
+                            url: API_HOST + ':' + API_PORT + '/api/shoppinglists',
+                            type: 'POST',
+                            contentType: "application/x-www-form-urlencoded", // type des données envoyées
+                            data: formdata, // corps de la requête (les champs du formulaire sous la forme "name=xxxxx&password=xxxxx" : x-wwww-form-urlencoded)
+                            dataType: "json" // type des données attendue en réponse
+                        })
+                        // en cas de succès (message est l'objet json retourné et parsé ==> objet JavaScript)
+                        .done(function(message) {
+
+                            displayShoppingLists();
+
+                            // Je cache le formulaire 
+                            // L'instruction modal('hide') est une instruction bootstrap
+                            $('#shoppinglistModal').modal('hide');
+
+                        })
+                        // en cas d'échec (réponse autre que 200 ou 201) : J'affiche le message d'erreur en rouge dans la fenêtre du formulaire
+                        .fail(function(request, message, error) {
+                            $("#shoppinglistAddUpdateError").text(error + " : " + request.responseJSON.message);
+                        });
+
+                } else // modif
+                {
+                    $('#shoppinglist_purchase_date').val($(".datepicker").data('datepicker').getFormattedDate('yyyy-mm-dd'));
+
+                    // Sérialise le contenu du formulaire sous la forme "title=xxxxx&purchase_date=xxxxx"
+                    var formdata = $("#shoppinglistForm").serialize();
+
+                    // Réalisation de la requête post sur l'API pour modifier une shoppinglist
+                    $.ajax({
+                            // TODO
+                            url: API_HOST + ':' + API_PORT + '/api/shoppinglists' + shoppinglist_id,
+                            type: 'PUT',
+                            headers: {
+                                "Authorization": "Bearer " + sessionStorage.getItem('token')
+                            }, // Je n'oublie pas de passer le token
+                            data: JSON.stringify(articles_arr_json), // <== Cadeau :)
+                            dataType: 'json', // TODO : type de donnée attendue en réponse,
+                            processData: false, // <== Cadeau :)
+                            contentType: 'application/json' // <== Cadeau :)
+                        })
+                        // en cas de succès (message est l'objet json retourné et parsé ==> objet JavaScript)
+                        .done(function(message) {
+
+                            displayShoppingLists();
+
+                            // Je cache le formulaire 
+                            // L'instruction modal('hide') est une instruction bootstrap
+                            $('#shoppinglistModal').modal('hide');
+
+                        })
+                        // en cas d'échec (réponse autre que 200 ou 201) : J'affiche le message d'erreur en rouge dans la fenêtre du formulaire
+                        .fail(function(request, message, error) {
+                            $("#shoppinglistAddUpdateError").text(error + " : " + request.responseJSON.message);
+                        });
+                }
+
+
+
+
+            });
+        }
+
+
+
+        /**
+         * Fonction appelée lorsque la page est chargée
+         */
+        $(document).ready(function(e) {
+
+            initSubmitCallbacks();
+            displayShoppingLists();
+
+            var html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", {
+                fps: 10,
+                qrbox: 250
+            });
+            html5QrcodeScanner.render(onScanSuccess);
+
+
+
+        });
+    </script>
+
+</head>
+
+<body>
+
+    <!-- Titre -->
+    <header class="intro">
+        <h1><img src="./foogood-icon.png" width="160px" /></h1>
+    </header>
+
+
+    <!-- 
+        DIV contenant le formulaire d'authentification 
+        (Pour la mise en forme, j'utilise les classes de bootstrap)
+    -->
+    <div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Login</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <!-- Le formulaire avec un ID pour pouvoir être récupéré avec jquery (==> #loginForm) -->
+                <form id="loginForm">
+
+                    <!-- Mise en forme des champs input du formulaire -->
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <input type="text" name="username" class="form-control" id="username" placeholder="Your Username...">
+                        </div>
+                        <div class="form-group">
+                            <input type="password" name="password" class="form-control" id="password" placeholder="Your password...">
+                        </div>
+                        <div class="form-group">
+                            <!-- Texte qui servira à afficher les eventuelles erreurs -->
+                            <small id="authError" class="text-danger">
+
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Mise en forme des boutons du formulaire ==> SUBMIT & CANCEL-->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+        DIV contenant le formulaire de creation / modification d'une shopping liste 
+        (Pour la mise en forme, j'utilise les classes de bootstrap)
+    -->
+    <div class="modal fade" id="shoppinglistModal" tabindex="-1" role="dialog" aria-labelledby="shoppinglistModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="shoppinglistModalLabel"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <!-- Le formulaire avec un ID pour pouvoir être récupéré avec jquery (==> #shoppinglistForm) -->
+                <form id="shoppinglistForm">
+
+                    <input type="hidden" name="shoppinglist_id" />
+
+                    <!-- Mise en forme des champs input du formulaire -->
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <input type="text" name="title" class="form-control" id="shoppinglist_title" placeholder="Titre de la liste...">
+                        </div>
+                        <div class="form-group">
+                            <div class="datepicker date input-group">
+                                <input type="text" placeholder="Date d'achat prévue" class="form-control" id="shoppinglist_purchase_date" name="purchase_date">
+                                <div class="input-group-append"><span class="input-group-text px-4"><i class="fa fa-calendar"></i></span></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <!-- Texte qui servira à afficher les eventuelles erreurs -->
+                            <small id="shoppinglistAddUpdateError" class="text-danger">
+
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Mise en forme des boutons du formulaire ==> SUBMIT & CANCEL-->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">OK</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+        DIV contenant le dialog de recherche 
+    -->
+    <div class="modal fade" id="searchModal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+        <input type="hidden" id="shoppinglist_id_search_for" value="" />
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+            <div class="modal-content" style="padding: 20px;">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="searchModalLabel">Rechercher des articles (OpenFoodFacts.fr)</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="row justify-content-center align-items-center">
+
+                    <div class="col-sm">
+                        <div class="card">
+
+
+                            <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link active" id="search-tab-pill" data-toggle="pill" href="#search-tab" role="tab" aria-controls="search-tab" aria-selected="true">Search</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="barcode-tab-pill" data-toggle="pill" href="#barcode-tab" role="tab" aria-controls="barcode-tab" aria-selected="false">BarCode</a>
+                                </li>
+                            </ul>
+                            <div class="tab-content" id="pills-tabContent">
+                                <div class="tab-pane fade show active" id="search-tab" role="tabpanel" aria-labelledby="search-tab">
+                                    <div class="card-body">
+                                        <div class="form-group">
+                                            <label for="search">Search Terms</label>
+                                            <input type="text" id="search" class="form-control" />
+                                        </div>
+
+                                    </div>
+                                    <div class="card-footer">
+                                        <div class="col-sm" style="text-align: center;">
+                                            <button type="button" id="searchButton" class="btn btn-primary" onclick="search();">Search...</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="barcode-tab" role="tabpanel" aria-labelledby="barcode-tab" style="text-align: center;">
+                                    <div id="qr-reader" style="width: 400px"></div>
+                                </div>
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+                <br/>
+                <hr/>
+                <br/>
+
+                <div class="row">
+                    <div class="col-sm">
+                        <table id="productTable" class="table table-bordered  table-condensed table-striped" style="width:90%;margin: auto;">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th class='align-middle'>Photo</th>
+                                    <th class='align-middle'>Description</th>
+                                    <th class='align-middle'>Nutriscore</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+
+    <div class="row">
+        <div class="col-sm">
+
+            <!-- 
+                Le tableau qui contiendra la liste de shoppinglists mais qui est vide pour l'instant.
+                Je lui donne un ID pour pouvoir y accèder depuis jquery (==> #shoppinglistsTable) 
+            -->
+            <table id="shoppinglistsTable" class="table table-bordered  table-condensed table-striped" style="width:90%;margin: auto;">
+                <thead class="thead-dark" style="background-color: darkcyan;">
+                    <tr>
+                        <th class="align-middle">Titre</th>
+                        <th class="align-middle">Date de création</th>
+                        <th class="align-middle">Date d'achat prévue</th>
+                        <th class="align-middle">Nutriscore Moyen</th>
+                        <th class="align-middle"><button onclick="addOrUpdateShoppingList();" type='button' class='btn btn-success'><i class='fa fa-plus'></i></button></th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+
+
+
+
+
+    <footer class="credit">Author: Emilien Micard:</footer>
+
+
+
+</body>
+
+</html>
