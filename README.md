@@ -1,3 +1,3 @@
 # FooGood
 
-Projet sur un API REST
+Projeter sur une API REST à l'aide de Docker
